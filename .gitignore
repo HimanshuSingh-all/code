@@ -1,4 +1,6 @@
 .py*
+.venv/
 __pycache__
 *.code-workspace
 .vscode
+mini.md

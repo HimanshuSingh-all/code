@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
+
 
 def BinH(p):
     return 0 if p==0 or p==1 else p*np.log2(1/p) + (1-p)*np.log2(1/(1-p))

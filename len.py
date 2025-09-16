@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import warnings
 
 def BinaryH(a)->float:
     """
@@ -12,8 +13,15 @@ def H(p:np.ndarray)->float:
     """
 
     """
-    # We'll keep the negative elemets 
+    # We'll keep the negative elemets
+
     inds = np.logical_not(p==0)
+    # print(inds.shape)
+    # inds = inds.astype(np.bool_)
+    # print(inds, '\n', p[inds])
+    if np.any(p[inds]<0):
+        # print('in', p[inds])
+        return np.nan
     return -np.sum(p[inds]*np.log2(p[inds]))
 
 def bool_conv(a,b):
@@ -48,12 +56,14 @@ class infinite_len_ab:
 
     def BinaryH(self, a:float):
         """ Compute the actual binary entropy"""
+        # warnings.filterwarnings('default')
         return BinaryH(a)
 
     def H_n(self, p):
         """ Compute the actual entropy given a list of probabilities"""
         ps = p.T
         ## Number of columns should be 4
+        # warnings.filterwarnings('error')
         assert ps.shape[1] == 4
         return np.array([H(ps[i,:]) for i in range(ps.shape[0])])
 
@@ -63,12 +73,19 @@ class infinite_len_ab:
     def len(self, q, n0, p, r, s, alpha):
         """ 
         Compute the length for the infinte length 
-        string genome information
+        string genome information.
+        ## Inputs:
+        - q(float): The size of the basin.
+        - n0(int): The fixed part of the string.
+        - p (float): The developmental noise.
+        - r(float): The "functional" distance "plus" the developmental noise. bool_conv(p,rhat).
+        - s(float): The distance between the replicated entities (replicated substrings).
+        - alpha(float): The initial part of the string as the intitial condition. 
         """
         # print( f's=  {s}', f'a= {alpha}, r = {r}')
         n = self.n(n0 = n0, alpha=alpha)
         C= 1- self.BinaryH(q)
-        rh =inv_bool_conv(p, r)
+        rh =inv_bool_conv( p, r)
         B= 1- self.BinaryH(rh)
         probs = np.array([1-rh-s/2, s/2, s/2, rh -s/2])
         A= 2 - self.H_n(probs)
@@ -81,26 +98,53 @@ class finite_len_ab:
         print('Initialised the finite length class')
 
     def BinaryH(self, a:float, n:int):
-        return BinaryH(a) - (1/(2*n)) * np.log2(2*np.pi*n) 
+        return BinaryH(a) + 1/n - (1/(2*n)) * np.log2(2*np.pi*n)
 
     def H_n(self, p, n ,t=4):
-        ps = p.T
-        assert ps.shape[1] == 4
+        
+        if p.ndim ==1:
+            ps = p[:, np.newaxis]
+            ps = ps.T
+        else:
+            ps = p.T
+        assert ps.shape[1] == t
         entrop_actual = np.array([H(ps[i,:]) for i in range(ps.shape[0])])
-        additive =  ((1/2-t/2)*np.log2((2*np.pi*n)) + np.log2(t/2))/n
-        return entrop_actual - additive
+        additive =  ((1/2-t/2)*np.log2((2*np.pi*n)) + (t/2)*np.log2(t))/n
+        return entrop_actual + additive
 
     def n(self, n0, alpha):
         return n0/(1-alpha)
 
     def len(self, q, n0, p, r, s, alpha):
+        """ 
+        Compute the length for the infinte length 
+        string genome information.
+        ## Inputs:
+        - q(float): The size of the basin.
+        - n0(int): The fixed part of the string.
+        - p (float): The developmental noise.
+        - r(float): The "functional" distance "plus" the developmental noise. bool_conv(p,rhat).
+        - s(float): The distance between the replicated entities (replicated substrings).
+        - alpha(float): The initial part of the string as the intitial condition. 
+        """ 
         n = self.n(n0 = n0, alpha=alpha)
-        C= (1- self.BinaryH(q, n))
+        assert n>0
+        # C= 1- self.H_n(np.array((q, 1-q)), n, t=2)
+        Ct= 1- self.H_n(np.array((q, 1-q)), n, t=2)
+        # C= 1- self.BinaryH(q, n ) #, t=2)
         rh =inv_bool_conv(p, r)
-        B= (1- self.BinaryH(rh, n))
+        # B = 1 - self.BinaryH(rh, n)
+        Bt= 1- self.H_n(np.array((rh, 1-rh)), n*(1-2*alpha), t = 2) if n*(1-2*alpha) >0 else 0
+        # assert np.isclose(B,Bt) and np.isclose(C,Ct)
         probs = np.array([1-rh-s/2, s/2, s/2, rh -s/2])
-        A= (2 - self.H_n(probs, n, t = 4) ) 
-        return n*( alpha*A + (1- 2*alpha) * B - C) 
+        A= 2-self.H_n(probs, alpha*n, t = 4) if n*alpha>0 else 0
+        return n*( alpha*A + (1- 2*alpha) * Bt - Ct)
+
+    def A(self, rh, s, n):
+        probs = np.array([1-rh-s/2, s/2, s/2, rh -s/2])
+        A= 2 - self.H_n(probs, n)
+        return A
+
 
 
 
