@@ -1,4 +1,5 @@
 .py*
+.DS_Store
 .venv/
 __pycache__
 *.code-workspace
