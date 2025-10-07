@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 def BinaryH(a)->float:
     """
     Compute the binary entropy
@@ -47,6 +47,46 @@ def inv_bool_conv(b, c):
         Returns a such that bool_conv(a,b) = c
     """
     return (1/2) * ( (c - b)/((1/2) - b) )
+
+
+def compute_l_r_substr_dist( strs:NDArray[np.bool], alpha:float, disttype: str = 'relative'):
+    """
+    Compute the distance between the left alpha*n substring and the substring of the same length contigously next to it for each string in the array. Each row is assumed to be a boolean string.
+    ## Inputs:
+    - strs (NDArray[np.bool]): An array of bits with each row representing a string of length n, which is the number of columns.
+    - alpha (float): The length fraction of the substring compared to the length of the total string. Cannot be `>0.5`.
+    - disttype (str): Whether to compute the absolute hamming distance or the relative hamming distance. Options: `{'absolute', 'relative'}`.
+    ## Returns:
+    - s_arr (NDArray[np.bool]): An
+    """
+    assert alpha<=0.5, "Alpha cannot be greater than 0.5"
+    #assert np.isdtype()
+    assert strs.ndim ==2 
+    n = strs.shape[1]
+    STEP = int(alpha*n)
+    cmp_left_right = np.logical_xor(strs[:, :STEP], strs[:, STEP: 2*STEP])
+    assert cmp_left_right.shape == (strs.shape[0], STEP)
+    if disttype == 'relative':
+        s_arr = np.sum( cmp_left_right, axis = 1) /(alpha*n)
+    elif disttype=='absolute':
+        s_arr = np.sum( cmp_left_right, axis = 1)
+    print(f's_arr shape {s_arr.shape}')
+    return s_arr
+
+def compute_dist_to_target(target_str:  NDArray[np.bool], strs:NDArray[np.bool], disttype: str = 'relative'):
+    """
+    Return a distance array for an array of strings to a given target string `target_str`.
+    # Inputs:
+    - target_str(NDArray[np.bool]): The target string
+    - strs (NDArray[np.bool]): An array of bits with each row representing a string of length n, which is the number of columns.
+    - alpha (float): The length fraction of the substring compared to the length of the total string. Cannot be `>0.5`.
+    - disttype (str): Whether to compute the absolute hamming distance or the relative hamming distance. Options: `{'absolute', 'relative'}`.
+    """
+    assert target_str.ndim ==1
+    assert strs.ndim ==2
+    assert strs.shape[1] == target_str.shape[0]
+    target_dist = np.sum( np.logical_xor(target_str, strs), axis= 1)
+    return target_dist
 
 
 class infinite_len_ab:
