@@ -1,20 +1,24 @@
 import numpy as np
+from numpy.typing import NDArray
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from scipy.spatial import cKDTree
 from scipy.stats import poisson_binom, binom
 from len import BinaryH, finite_len_ab, bool_conv, inv_bool_conv
+from len import compute_dist_to_target, compute_l_r_substr_dist, compute_death_rate
 
 
 
-
+CHOICE_P = 0.5
 ALPHA = 0.5
 NPTS_1  = 100
 NPTS_2  = 200
 SPTS = 100
 
 qhmin = 0.5*(ALPHA*0.5 + 0.5 *(1-ALPHA))
-_n0 = 110
-_n = np.ceil(_n0/(1- ALPHA) )
+_n0 = 50 # 110
+_n = int(np.ceil(_n0/(1- ALPHA) ))
+assert np.ceil(_n*ALPHA)%2 == 0
 _p = 0
 
 qh = np.linspace(qhmin, 0.5, NPTS_1)
@@ -72,7 +76,7 @@ print("The picked value of s: ",spick)
 print("The picked value of q: ",qpick)
 print("The picked value of r: ",rmin)
 
-plt.figure(1)
+#plt.figure(1)
 #Plotting the regions
 fig, axs = plt.subplots(1, 2 , constrained_layout = True)
 map = axs[1].imshow(smin, origin = 'lower', extent=[qh[0], qh[-1], r[0], r[-1]])#, aspect='square')
@@ -101,9 +105,91 @@ axs[1].set_ylabel(r'$r\to$')
 
 
 # Generate random strings
-_k: int = np.ceil( _n * (1 - finiapprox.BinaryH(a = PICKEDVALS['qpick'], n = _n) )) 
+_k: int = int(np.ceil( _n * (1 - finiapprox.BinaryH(a = PICKEDVALS['qpick'], n = _n) )) )
 assert isinstance(_k, int)
-NUMSTR = 2**_k
+fig2, axs2 = plt.subplots(2, 2, constrained_layout = True)
+print('Plotting the scatterplot')
+for i , k in tqdm(enumerate([ 10 , 13, 16, _k])):
+    NUMSTR = 2**k
+    NUMTARGS = 100 # number of different target to be constructed
+    NUMCONSTR = 100 
 
+    target_strings = np.random.random( size = (1, _n-_n0) ) < CHOICE_P
+    fp_strings = np.random.random( size = (NUMSTR, _n) ) < CHOICE_P
+    death_rate = np.zeros(shape = (NUMTARGS, ) )
+    assert target_strings.ndim==2 
+
+    target = target_strings[0, :] 
+    STEP = _n - _n0
+    s_arr = compute_l_r_substr_dist(strs = fp_strings, alpha= ALPHA, disttype='relative')
+    arr_1 = compute_dist_to_target(target_str= target, strs = fp_strings[:, :STEP])
+    arr_2 = compute_dist_to_target(target_str= target, strs = fp_strings[:, STEP:2*STEP])
+    r_arr = np.where(
+            arr_1>arr_2,
+            arr_1,
+            arr_2
+    )
+
+    #plt.figure(2)
+    axs2[i//2, i%2].scatter( s_arr, r_arr, s = 2)
+    axs2[i//2, i%2].set_title(f'k = {k}, # strings = {2**k}')
+
+
+
+
+NUMSTR = 2**_k
+NUMTARGS = 1 # number of different target to be constructed
+NUMCONSTR = 100 
+
+target_strings = np.random.random( size = (1, _n-_n0) ) < CHOICE_P
+fp_strings = np.random.random( size = (NUMSTR, _n) ) < CHOICE_P
+death_rate = np.zeros(shape = (NUMTARGS, ) )
+assert target_strings.ndim==2
+
+target = target_strings[0, :] 
+STEP = _n - _n0
+s_arr = compute_l_r_substr_dist(strs = fp_strings, alpha= ALPHA, disttype='relative')
+arr_1 = compute_dist_to_target(target_str= target, strs = fp_strings[:, :STEP])
+arr_2 = compute_dist_to_target(target_str= target, strs = fp_strings[:, STEP:2*STEP])
+r_arr = np.where(
+        arr_1>arr_2,
+        arr_1,
+        arr_2
+    )
+#print('here')
+#S, R = np.meshgrid(s_arr, r_arr)
+#print('here')
+# I do not need kdtrees as the _n is an integer which is fixed and the 
+# relative error is e/_n or e/_n0, where e = {0, 1, ... _n} or e = {0, 1, ... _n0}
+# so it is very likely the 2d plot will have a "lattice" like structure in the dense points
+# or the bulk of the scatterplot
+bound_inds = np.logical_and(s_arr<=0.5, r_arr<=0.5)
+s_unique = np.unique(s_arr[bound_inds])
+r_unique = np.unique(r_arr[bound_inds])
+print(s_unique.shape)
+gets_str_ind = np.logical_and( bound_inds, s_unique)
+death_rates = np.zeros((r_unique, s_unique))
+death_rate = np.nan
+
+s_unique = np.sort(s_unique)
+r_unique = np.sort(r_unique)
+r_ind_elems = list(range(r_unique.shape[0]))
+s_ind_elems = list(range(s_unique.shape[0]))
+r_val_ind:dict = dict(zip(r_unique, r_ind_elems))
+s_val_ind:dict = dict(zip(s_unique, s_ind_elems))
+
+MOTHER_STRINGS:NDArray = fp_strings[gets_str_ind]
+MOTHER_STR_INDICES:NDArray = np.arange(0, fp_strings.shape[0])[gets_str_ind]
+
+for index ,mother in zip(MOTHER_STR_INDICES, MOTHER_STRINGS);
+    rval = r_arr[index]
+    sval = s_arr[index]
+    store_ind = (r_val_ind[rval], s_val_ind[sval])
+    death_rate = compute_death_rate(
+        mother = mother,
+        fps = fp_strings,
+        alpha = ALPHA,
+        trials = NUMCONSTR
+    )
 
 plt.show()

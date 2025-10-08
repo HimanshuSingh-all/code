@@ -85,8 +85,53 @@ def compute_dist_to_target(target_str:  NDArray[np.bool], strs:NDArray[np.bool],
     assert target_str.ndim ==1
     assert strs.ndim ==2
     assert strs.shape[1] == target_str.shape[0]
-    target_dist = np.sum( np.logical_xor(target_str, strs), axis= 1)
+    if disttype == 'relative':
+        target_dist = np.sum( np.logical_xor(target_str, strs), axis= 1)/target_str.shape[0]
+    elif disttype == 'absolute':
+        target_dist = np.sum( np.logical_xor(target_str, strs), axis= 1)
     return target_dist
+
+
+def compute_death_rate(
+        mother:NDArray,
+        fps:NDArray,
+        alpha:float,
+        trials:int,
+        p:float =0,
+        choice_p: float =0.5
+): 
+    """ 
+    Compute the death rate of the given a mother string.
+    """
+    assert mother.ndim == 1
+    assert fps.ndim == 2
+    assert 0<alpha <=0.5
+    assert isinstance(trials, int)
+    n_ = mother.shape[0]
+    STEP = np.ceil(alpha*n_) 
+    substr_1 = mother[:STEP]
+    substr_2 = mother[STEP:2*STEP]
+    toehold = np.where(
+        np.random.random(np.shape(STEP, ))>np.random.random(np.shape(STEP, )),
+        substr_1,
+        substr_2
+    )
+    death_rate = 0
+    for i in range(trials):
+        random_part = np.random.random(size = n_-STEP) <choice_p
+        toehold = np.hstack( (toehold, random_part))
+        parent_toehold_dist = np.logical_xor( toehold, mother)
+        parent_toehold_dist = np.sum(parent_toehold_dist)/n_
+        minm = np.inf
+        for a_str in fps:
+            assert a_str.shape == toehold.shape
+            dist = np.sum(np.logical_xor(toehold, a_str))/n_
+            minm = min(dist, minm)
+        if minm<parent_toehold_dist:
+            death_rate+=1
+    death_rate = death_rate/trials
+    return death_rate
+
 
 
 class infinite_len_ab:
