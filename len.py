@@ -108,7 +108,7 @@ def compute_death_rate(
     assert 0<alpha <=0.5
     assert isinstance(trials, int)
     n_ = mother.shape[0]
-    STEP = np.ceil(alpha*n_) 
+    STEP = int(np.ceil(alpha*n_) )
     substr_1 = mother[:STEP]
     substr_2 = mother[STEP:2*STEP]
     toehold = np.where(
@@ -119,13 +119,14 @@ def compute_death_rate(
     death_rate = 0
     for i in range(trials):
         random_part = np.random.random(size = n_-STEP) <choice_p
-        toehold = np.hstack( (toehold, random_part))
-        parent_toehold_dist = np.logical_xor( toehold, mother)
+        #print(f'Toehold shape {toehold.shape}')
+        init_str = np.hstack( (toehold, random_part))
+        parent_toehold_dist = np.logical_xor( init_str, mother)
         parent_toehold_dist = np.sum(parent_toehold_dist)/n_
         minm = np.inf
         for a_str in fps:
-            assert a_str.shape == toehold.shape
-            dist = np.sum(np.logical_xor(toehold, a_str))/n_
+            assert a_str.shape == init_str.shape
+            dist = np.sum(np.logical_xor(init_str, a_str))/n_
             minm = min(dist, minm)
         if minm<parent_toehold_dist:
             death_rate+=1

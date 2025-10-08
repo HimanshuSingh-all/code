@@ -11,12 +11,12 @@ from len import compute_dist_to_target, compute_l_r_substr_dist, compute_death_r
 
 CHOICE_P = 0.5
 ALPHA = 0.5
-NPTS_1  = 100
-NPTS_2  = 200
+NPTS_1  = 20
+NPTS_2  = 20
 SPTS = 100
 
 qhmin = 0.5*(ALPHA*0.5 + 0.5 *(1-ALPHA))
-_n0 = 50 # 110
+_n0 = 70 # 110
 _n = int(np.ceil(_n0/(1- ALPHA) ))
 assert np.ceil(_n*ALPHA)%2 == 0
 _p = 0
@@ -164,32 +164,60 @@ r_arr = np.where(
 # so it is very likely the 2d plot will have a "lattice" like structure in the dense points
 # or the bulk of the scatterplot
 bound_inds = np.logical_and(s_arr<=0.5, r_arr<=0.5)
-s_unique = np.unique(s_arr[bound_inds])
-r_unique = np.unique(r_arr[bound_inds])
+s_unique, counts_s= np.unique(s_arr[bound_inds], return_counts=True)
+r_unique, counts_r= np.unique(r_arr[bound_inds], return_counts=True)
+
 print(s_unique.shape)
-gets_str_ind = np.logical_and( bound_inds, s_unique)
-death_rates = np.zeros((r_unique, s_unique))
-death_rate = np.nan
+print(r_unique.shape)
+
+
+death_rates = np.zeros((r_unique.shape[0], s_unique.shape[0]))
+death_ratesmap = np.zeros_like(death_rates)
 
 s_unique = np.sort(s_unique)
 r_unique = np.sort(r_unique)
 r_ind_elems = list(range(r_unique.shape[0]))
 s_ind_elems = list(range(s_unique.shape[0]))
-r_val_ind:dict = dict(zip(r_unique, r_ind_elems))
-s_val_ind:dict = dict(zip(s_unique, s_ind_elems))
+#r_val_ind:dict = dict(zip(r_unique, r_ind_elems))
+#s_val_ind:dict = dict(zip(s_unique, s_ind_elems))
+#print(MOTHER_STRINGS.shape)
+for i, r in tqdm(enumerate(r_unique)):
+    inds_r = r_arr==r
+    for j, s in enumerate(s_unique):
+        inds_s = s_arr==s
+        ind = np.logical_and(inds_r, inds_s)
+        if not(np.any(ind)):
+            death_rates[i,j] = np.nan
+            continue
+        del inds_s
+        mother = fp_strings[ind][0]
+        assert mother.shape[0] == _n
+        death_rate = compute_death_rate(
+            mother = mother,
+            fps = fp_strings,
+            alpha = ALPHA,
+            trials = NUMCONSTR
+        )
+        death_rates[i, j] +=death_rate
 
-MOTHER_STRINGS:NDArray = fp_strings[gets_str_ind]
-MOTHER_STR_INDICES:NDArray = np.arange(0, fp_strings.shape[0])[gets_str_ind]
 
-for index ,mother in zip(MOTHER_STR_INDICES, MOTHER_STRINGS);
-    rval = r_arr[index]
-    sval = s_arr[index]
-    store_ind = (r_val_ind[rval], s_val_ind[sval])
-    death_rate = compute_death_rate(
-        mother = mother,
-        fps = fp_strings,
-        alpha = ALPHA,
-        trials = NUMCONSTR
-    )
 
+#for index ,mother in tqdm(zip(MOTHER_STR_INDICES, MOTHER_STRINGS)):
+#    rval = r_arr[index]
+#    sval = s_arr[index]
+#    store_ind = (r_val_ind[rval], s_val_ind[sval])
+#    death_rate = compute_death_rate(
+#        mother = mother,
+#        fps = fp_strings,
+#        alpha = ALPHA,
+#        trials = NUMCONSTR
+#    )
+#    death_rates[store_ind] +=death_rate
+#    death_ratesmap[store_ind]+=1
+#
+death_rates = death_rates/death_ratesmap
+plt.figure(3)
+plt.imshow(death_rates, origin = 'lower', extent=[s_unique[0], s_unique[-1], r_unique[0], r_unique[-1]]) 
+plt.colorbar()
+print('Last Elem')
 plt.show()
