@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings
+from tqdm import tqdm
 from numpy.typing import ArrayLike, NDArray
 def BinaryH(a)->float:
     """
@@ -111,12 +112,18 @@ def compute_death_rate(
     STEP = int(np.ceil(alpha*n_) )
     substr_1 = mother[:STEP]
     substr_2 = mother[STEP:2*STEP]
-    toehold = np.where(
-        np.random.random(np.shape(STEP, ))>np.random.random(np.shape(STEP, )),
-        substr_1,
-        substr_2
-    )
-    death_rate = 0
+    #toehold = np.where(
+    #    np.random.random(np.shape(STEP, ))>np.random.random(np.shape(STEP, )),
+    #    substr_1,
+    #    substr_2
+    #)
+    toehold = np.hstack((substr_1[:STEP//2], substr_2[STEP//2:]))
+    assert toehold.shape[0] == STEP
+    death_rate = 0.0
+    last_str = None
+    dist_mother = np.zeros(trials)
+    dist_minfp = np.zeros(trials)
+
     for i in range(trials):
         random_part = np.random.random(size = n_-STEP) <choice_p
         #print(f'Toehold shape {toehold.shape}')
@@ -128,8 +135,13 @@ def compute_death_rate(
             assert a_str.shape == init_str.shape
             dist = np.sum(np.logical_xor(init_str, a_str))/n_
             minm = min(dist, minm)
+        dist_mother[i] = parent_toehold_dist
+        dist_minfp[i] = minm
         if minm<parent_toehold_dist:
-            death_rate+=1
+            death_rate= death_rate + 1
+        #if last_str is not None:
+        #    print(f'islat = {np.all(last_str == init_str)}')
+        #last_str = init_str
     death_rate = death_rate/trials
     return death_rate
 
@@ -254,86 +266,3 @@ class finite_len_ab:
         A= 2 - self.H_n(probs, n)
         return A
 
-
-
-
-
-# if __name__ == "__main__":
-#     p = 0.0
-#     NUMPTS = 1000
-    
-#     alpha = 0.5 #:1 - 2*qh + 0.001
-#     qmin = 1/4
-#     qmax = 3*alpha/8
-#     qhat = [0.25, 0.3, 0.35]
-#     ls = list()
-
-#     s = np.linspace(0, 1/2, NUMPTS)
-#     rhat = np.linspace(0, 1/2, NUMPTS)
-#     for qh in qhat:
-#         l = np.zeros((s.shape[0], rhat.shape[0]))
-#         for i in range(s.shape[0]):
-#             for j in range(rhat.shape[0]):
-#                 l[i,j] = len_gen_ab(p = p, qhat= qh, alpha= alpha, rhat= rhat[j], s =s[i] )
-#         ls.append(l)
-
-#     xlabel = r"$\hat{r}\to$"
-#     ylabel = r"$s\to$"
-#     # Colormap
-#     cmap = "viridis"
-#     # Create figure with 3 subplots (columns)
-#     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-#     x_vals = rhat
-#     y_vals = s
-#     for i, ax in enumerate(axes):
-#         im = ax.imshow(ls[i], cmap=cmap, origin='lower', aspect='auto' ,extent=[x_vals[0], x_vals[-1], y_vals[0], y_vals[-1]])
-#         ax.set_aspect('equal')
-#         ax.set_title(r"$\hat{q}:$" + f"{qhat[i]}"+ f' p = {p}')
-#         ax.set_xlabel(xlabel)
-#         ax.set_ylabel(ylabel)
-#         X, Y = np.meshgrid(x_vals, y_vals)
-#         mask = Y==2*X 
-#         # Plot filled contours
-#         cont = ax.contour(X, Y, ls[i], levels=20, cmap="viridis")
-#         # Optional: plot contour lines
-#         ax.plot(X[mask], Y[mask], color='red', label = r'$s=2\hat{r}$')
-#         zero_mask = np.isclose(ls[i],0)
-#         print(zero_mask.shape)
-#         ax.scatter(X[zero_mask], Y[zero_mask], color='white') #, label = r'$s=2\hat{r}$')
-
-#         nan_mask = np.isnan(ls[i])
-#         ax.scatter(X[nan_mask], Y[nan_mask], color='orange') #, label = r'$s=2\hat{r}$')
-#         ax.plot( rhat, rhat*(1-rhat)*2, color='peru', label = r'$\hat{r} \bigoplus\hat{r}$' )
-#         print(alpha)
-#         smin = 1 - (1-2*qhat[i])/alpha
-#         ax.axhline(y = smin, color  = 'black', linestyle = 'dashed')
-#         lcpy = np.where(nan_mask, np.inf, ls[i])
-#         idx = np.argmin(lcpy, axis = 0)
-#         ax.scatter(rhat,s[idx], marker = 'x', color = 'slategrey', label = r'$s_{min}$ (no constraints)')
-        
-#         ## Accountinf for the constrained s
-#         mask = Y <=smin
-#         lcpy = np.where(mask, lcpy, np.inf)
-#         idx = np.argmin(lcpy, axis = 0)
-#         ax.scatter(rhat,s[idx], marker = '.', color = 'magenta', label = r'$s_{min}$ (constrained)')
-#         # ax.scatter(rhat,s[idx], marker = 'o', edgecolor = 'magenta', facecolor = 'none', label = r'$s_{min}$ (constrained)')
-#         # lines = ax.contour(X, Y, ls[i], levels=10, colors="white", linewidths=0.7)
-#         # ax.clabel(lines, inline=True, fontsize=8)  # label contour lines
-#         # Add individual colorbar
-#         cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-#         cbar.set_label("Value")
-
-#     # Tight layout for spacinghandles, labels = axes[0].get_legend_handles_labels()
-#     handles, labels = axes[0].get_legend_handles_labels()
-#     # One global legend outside the figure
-#     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.01), ncols = len(labels))
-#     plt.tight_layout()
-#     plt.savefig(f'l_svr_alpha_{alpha:.2f}_p_{p}.png', dpi = 300, bbox_inches = 'tight')
-#     plt.show()
-#            #def appl_func(s,rhat):
-#            #    X,Y = np.meshgrid(s, rhat, indexing='ij')
-#            #    print('Grid \n', X)
-#            #    print(Y)
-#            #    return len_gen_ab(p, qh, alpha, Y,X )
-#            #ls.append(appl_func(s, rhat))
-#            #print(ls[-1])
